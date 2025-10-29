@@ -125,6 +125,83 @@ const resultDisplay = computed(() => {
   return `是${y}年${m}月${d}日`
 })
 
+// 轻量音效：使用 Web Audio 生成点击与提示音
+let audioCtx = null
+function getAudioCtx() {
+  const AC = window.AudioContext || window.webkitAudioContext
+  if (!audioCtx && AC) audioCtx = new AC()
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume()
+  return audioCtx
+}
+
+function playSound(type = 'click') {
+  const ctx = getAudioCtx()
+  if (!ctx) return
+  const t = ctx.currentTime
+  const osc = ctx.createOscillator()
+  const gain = ctx.createGain()
+
+  // 基本包络，快速起音快速衰减
+  const vol = type === 'back' ? 0.12 : type === 'reset' ? 0.18 : 0.14
+  const dur = type === 'reset' ? 0.18 : 0.06
+  gain.gain.setValueAtTime(0.0, t)
+  gain.gain.linearRampToValueAtTime(vol, t + 0.01)
+  gain.gain.exponentialRampToValueAtTime(0.001, t + dur)
+
+  // 频率与波形根据类型微调
+  if (type === 'reset') {
+    osc.type = 'sawtooth'
+    osc.frequency.setValueAtTime(600, t)
+    osc.frequency.exponentialRampToValueAtTime(180, t + dur)
+  } else if (type === 'back') {
+    osc.type = 'triangle'
+    osc.frequency.setValueAtTime(280, t)
+  } else if (type === 'confirm') {
+    osc.type = 'square'
+    osc.frequency.setValueAtTime(760, t)
+  } else if (type === 'direction') {
+    osc.type = 'square'
+    osc.frequency.setValueAtTime(700, t)
+  } else if (type === 'today') {
+    osc.type = 'square'
+    osc.frequency.setValueAtTime(640, t)
+  } else {
+    // 默认点击
+    osc.type = 'square'
+    osc.frequency.setValueAtTime(690, t)
+  }
+
+  osc.connect(gain)
+  gain.connect(ctx.destination)
+  osc.start(t)
+  osc.stop(t + dur + 0.02)
+}
+
+function playComputeChime() {
+  const ctx = getAudioCtx()
+  if (!ctx) return
+  const t = ctx.currentTime
+  // 两个短音符叠加：轻快提示
+  const notes = [
+    { f: 880, d: 0.085, v: 0.11 },
+    { f: 1320, d: 0.11, v: 0.11 }
+  ]
+  notes.forEach((n, i) => {
+    const start = t + i * 0.06
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.type = 'sine'
+    osc.frequency.setValueAtTime(n.f, start)
+    gain.gain.setValueAtTime(0.0, start)
+    gain.gain.linearRampToValueAtTime(n.v, start + 0.015)
+    gain.gain.exponentialRampToValueAtTime(0.001, start + n.d)
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.start(start)
+    osc.stop(start + n.d + 0.02)
+  })
+}
+
 // 按键样式（实体按键拟态）
 const keyBase = 'select-none text-center font-semibold rounded-lg px-4 py-3 bg-white text-black shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_6px_0_0_rgba(0,0,0,0.18),0_8px_12px_rgba(0,0,0,0.18)] active:translate-y-[2px] active:shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_3px_0_0_rgba(0,0,0,0.18),0_5px_8px_rgba(0,0,0,0.18)] transition-all disabled:opacity-40 disabled:cursor-not-allowed'
 const keyClass = (highlight) => [keyBase, highlight ? 'ring-2 ring-neutral-700' : 'ring-1 ring-neutral-400']
@@ -134,7 +211,7 @@ const keyPrimaryClass = [
 ]
 const keySecondaryClass = [
   keyBase,
-  'bg-white text-black ring-2 ring-neutral-500'
+  'bg-white text-black ring-2 ring-neutral-700'
 ]
 const keyDangerClass = [
   keyBase,
@@ -148,12 +225,14 @@ function segmentClass(done) {
 
 function confirmYearStage() {
   if (!yearEntered.value || activeTarget.value !== 'year') return
+  playSound('confirm')
   stageHistory.value.push({ type: 'year' })
   activeTarget.value = 'month'
 }
 
 function confirmMonthStage() {
   if (!monthEntered.value || activeTarget.value !== 'month') return
+  playSound('confirm')
   monthConfirmed.value = true
   stageHistory.value.push({ type: 'month' })
   activeTarget.value = 'day'
@@ -161,6 +240,7 @@ function confirmMonthStage() {
 
 function confirmDayStage() {
   if (!dayEntered.value || activeTarget.value !== 'day') return
+  playSound('confirm')
   dayConfirmed.value = true
   stageHistory.value.push({ type: 'day' })
   activeTarget.value = 'interval'
@@ -168,11 +248,13 @@ function confirmDayStage() {
 
 function setDirection(dir) {
   if (!intervalEntered.value) return
+  playSound('direction')
   direction.value = dir
   stageHistory.value.push({ type: 'direction' })
 }
 
 function pressDigit(d) {
+  playSound('click')
   errorMsg.value = ''
   if (activeTarget.value === 'interval') {
     const next = String(intervalValue.value) + d
@@ -289,6 +371,8 @@ function pressDigit(d) {
 }
 
 function compute() {
+  // 先播放提示音，再计算
+  playComputeChime()
   errorMsg.value = ''
   resultDate.value = null
 
@@ -379,6 +463,7 @@ function isLeapYear(y) {
 
 // 新增：复位、回退、填充今天
 function resetAll() {
+  playSound('reset')
   year.value = ''
   month.value = ''
   day.value = ''
@@ -394,6 +479,7 @@ function resetAll() {
 }
 
 function backToPrevious() {
+  playSound('back')
   errorMsg.value = ''
   // 1) 先撤销当前阶段的数字输入
   if (activeTarget.value === 'interval') {
@@ -443,6 +529,7 @@ function backToPrevious() {
 }
 
 function fillToday() {
+  playSound('today')
   const t = new Date()
   year.value = String(t.getFullYear())
   month.value = String(t.getMonth() + 1).padStart(2, '0')
