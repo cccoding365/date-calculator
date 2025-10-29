@@ -8,12 +8,12 @@
             <span :class="segmentClass(yearEntered)">{{ yearDisplay }}年</span>
             <span :class="segmentClass(monthEntered)">{{ monthDisplay }}月</span>
             <span :class="segmentClass(dayEntered)">{{ dayDisplay }}日</span>
-            <span :class="intervalEntered ? 'text-white' : 'text-neutral-400'">{{ intervalEntered ? (intervalValue + '天') : '__天' }}</span>
-            <span :class="direction ? 'text-white' : 'text-neutral-400'">{{ directionLabel }}</span>
+            <span :class="intervalEntered ? 'text-white' : 'text-neutral-700'">{{ intervalEntered ? (intervalValue + '天') : '__天' }}</span>
+            <span :class="direction ? 'text-white' : 'text-neutral-700'">{{ directionLabel }}</span>
           </div>
-          <div class="text-xl md:text-2xl font-mono tracking-wide mt-5 flex items-baseline gap-3">
+          <div class="text-xl md:text-2xl font-mono tracking-wide mt-4 flex items-baseline gap-3">
             <span class="text-white">→</span>
-            <span :class="resultDate ? 'text-white' : 'text-neutral-400'">{{ resultDisplay }}</span>
+            <span :class="resultDate ? 'text-white' : 'text-neutral-700'">{{ resultDisplay }}</span>
           </div>
           <div v-if="errorMsg" class="mt-3 text-white text-sm">{{ errorMsg }}</div>
         </div>
@@ -26,15 +26,25 @@
         </div>
 
         <div class="grid grid-cols-2 gap-3 mb-4">
-          <button :class="keyClass(direction === 'past')" @click="setDirection('past')" :disabled="!intervalEntered">前</button>
-          <button :class="keyClass(direction === 'future')" @click="setDirection('future')" :disabled="!intervalEntered">后</button>
+          <button :class="keyClass(direction === 'past')" @click="setDirection('past')" :disabled="!intervalEntered" aria-label="前">
+            <ArrowLeft :size="20" class="mr-1 inline-block" />前
+          </button>
+          <button :class="keyClass(direction === 'future')" @click="setDirection('future')" :disabled="!intervalEntered" aria-label="后">
+            <ArrowRight :size="20" class="mr-1 inline-block" />后
+          </button>
         </div>
 
         <!-- 辅助功能：今天、回退、复位 -->
         <div class="grid grid-cols-3 gap-3 mb-4">
-          <button :class="keySecondaryClass" @click="fillToday">今天</button>
-          <button :class="keySecondaryClass" @click="backToPrevious">回退</button>
-          <button :class="keyDangerClass" @click="resetAll">复位</button>
+          <button :class="keySecondaryClass" @click="fillToday" aria-label="今天">
+            <Calendar :size="20" class="mr-1 inline-block" />今天
+          </button>
+          <button :class="keySecondaryClass" @click="backToPrevious" aria-label="回退">
+            <Undo :size="20" class="mr-1 inline-block" />回退
+          </button>
+          <button :class="keyDangerClass" @click="resetAll" aria-label="复位">
+            <RotateCcw :size="20" class="mr-1 inline-block" />复位
+          </button>
         </div>
 
         <!-- 数字键盘 -->
@@ -52,7 +62,9 @@
           <button :class="keyClass(activeTarget !== null)" @click="pressDigit('3')">3</button>
 
           <button :class="keyClass(activeTarget !== null)" @click="pressDigit('0')">0</button>
-          <button class="col-span-2" :class="keyPrimaryClass" @click="compute" :disabled="!canCompute">是</button>
+          <button class="col-span-2" :class="keyPrimaryClass" @click="compute" :disabled="!canCompute" aria-label="是">
+            <Check :size="20" class="mr-1 inline-block text-black" />是
+          </button>
         </div>
       </div>
     </div>
@@ -61,6 +73,7 @@
 
 <script setup>
 import { ref, computed } from 'vue'
+import { ArrowLeft, ArrowRight, Calendar, Undo, RotateCcw, Check } from 'lucide-vue-next'
 
 // 输入状态
 const year = ref('')
@@ -130,7 +143,7 @@ const keyDangerClass = [
 
 // 交互函数
 function segmentClass(done) {
-  return done ? 'text-white' : 'text-neutral-400'
+  return done ? 'text-white' : 'text-neutral-700'
 }
 
 function confirmYearStage() {
@@ -163,7 +176,7 @@ function pressDigit(d) {
   errorMsg.value = ''
   if (activeTarget.value === 'interval') {
     const next = String(intervalValue.value) + d
-    intervalValue.value = clampInt(next, 1, 9999)
+    intervalValue.value = clampInt(next, 1, 99999)
     return
   }
 
